@@ -1,0 +1,15 @@
+* FractalCocoaClock
+  A fractal clock screensaver heavily inspired by Rob Mayoff
+
+  This implementation does not require OpenGL and therefore should work on MacOS 10.14 (Mojave)
+  
+** Images
+   [[./images/fractal-1.png]]
+   [[./images/fractal-2.png]]
+
+** Compilation
+   Requires xcodebuild
+
+   #+BEGIN_SRC bash
+   make build
+   #+END_SRC
