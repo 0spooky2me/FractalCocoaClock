@@ -15,11 +15,13 @@ class FractalCocoaClockView: ScreenSaverView {
 
     let maxDepth = 32
     let colourGenerationScale: CGFloat = 0.85
-    //let generationScale: CGFloat = 0.793700525984099737375852819636
-    let generationScale: CGFloat = 0.85
+    let generationScaleMax: CGFloat = 1
+    let generationScaleMin: CGFloat = 0.793700525984099737375852819636
+    let expansionPattern: Array<CGFloat> = [60, 12, 60, 12]
 
     override init?(frame: NSRect, isPreview: Bool) {
         super.init(frame: frame, isPreview: isPreview)
+
     }
 
     required init?(coder: NSCoder) {
@@ -28,11 +30,28 @@ class FractalCocoaClockView: ScreenSaverView {
 
     /**
      * Generate a variable fractal scale for more interesting designs
+     * @param now {CGFloat} The current time
      *
      * @returns {CGFloat} The scale to use between fractal generations
      */
-    func getVariableScale(now: CGFloat, extraSeconds: CGFloat) -> CGFloat {
-        return generationScale
+    func getVariableScale(now: CGFloat) -> CGFloat {
+        let patternValue = now.truncatingRemainder(dividingBy: expansionPattern.reduce(0, +))
+
+        if (patternValue <= expansionPattern[0]) {
+            return generationScaleMin
+        } else if (patternValue <= expansionPattern.prefix(2).reduce(0, +)) {
+            return generationScaleMax +
+              (generationScaleMin - generationScaleMax) *
+              (cos(CGFloat.pi * (patternValue - expansionPattern[0]) / expansionPattern[1]) + 1) * 0.5
+        } else if (patternValue <= expansionPattern.prefix(3).reduce(0, +)) {
+            return generationScaleMax
+        } else {
+            return generationScaleMin +
+              (generationScaleMax - generationScaleMin) *
+              (cos(CGFloat.pi *
+                     (patternValue - expansionPattern.prefix(3).reduce(0, +))
+                     / expansionPattern[3]) + 1) * 0.5
+        }
     }
 
     /**
@@ -115,7 +134,7 @@ class FractalCocoaClockView: ScreenSaverView {
         let minuteRotation = getRotation(now: now, period: 60 * 60)
         let secondRotation = getRotation(now: now, period: 60)
 
-        let scale = getVariableScale(now: now, extraSeconds: 12)
+        let scale = getVariableScale(now: now)
 
         let hourRotator = getRotator(rotation: hourRotation, scale: 1)
         let minuteRotator = getRotator(rotation: minuteRotation - hourRotation, scale: -scale)
