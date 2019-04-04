@@ -9,24 +9,19 @@
 import Cocoa
 import ScreenSaver
 
-typealias Rotator = (x: CGFloat, y: CGFloat)
+typealias Rotator = (scaledcos: CGFloat, scaledsin: CGFloat)
 
 class FractalCocoaClockView: ScreenSaverView {
 
     let maxDepth = 32
-    var alphaForDepth: Array<CGFloat> = []
     let colourGenerationScale: CGFloat = 0.85
-    let generationScale: CGFloat = 0.793700525984099737375852819636
+    //let generationScale: CGFloat = 0.793700525984099737375852819636
+    let generationScale: CGFloat = 0.85
 
     override init?(frame: NSRect, isPreview: Bool) {
         super.init(frame: frame, isPreview: isPreview)
-
-        alphaForDepth.append(1)
-        for i in 1...maxDepth-1 {
-            alphaForDepth.append(1 / CGFloat(i))
-        }
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError()
     }
@@ -50,9 +45,9 @@ class FractalCocoaClockView: ScreenSaverView {
     func getRotator(rotation: CGFloat, scale: CGFloat) -> Rotator {
         var returnRotator: Rotator
 
-        returnRotator.x = cos(rotation) * scale
-        returnRotator.y = sin(rotation) * scale
-        
+        returnRotator.scaledcos = cos(rotation) * scale
+        returnRotator.scaledsin = sin(rotation) * scale
+
         return returnRotator
     }
 
@@ -64,8 +59,8 @@ class FractalCocoaClockView: ScreenSaverView {
      * @returns {NSSize} The rotated and scaled hand
      */
     func rotateSize(rotator: Rotator, size: NSSize) -> NSSize {
-        return NSMakeSize(size.width * rotator.x - size.height * rotator.y,
-                          size.width * rotator.y + size.height * rotator.x)
+        return NSMakeSize(size.width * rotator.scaledcos - size.height * rotator.scaledsin,
+                          size.width * rotator.scaledsin + size.height * rotator.scaledcos)
     }
 
     /**
@@ -77,29 +72,29 @@ class FractalCocoaClockView: ScreenSaverView {
     func getNow(isPreview: Bool) -> CGFloat {
         let date = Date()
         let calendar = Calendar.current
-        let hours = CGFloat(calendar.component(.hour, from: date))
-        let minutes = CGFloat(calendar.component(.minute, from: date))
-        let seconds = CGFloat(calendar.component(.second, from: date))
-        let nanoseconds = CGFloat(calendar.component(.nanosecond, from: date))
-        let nanosecondsPerSecond = CGFloat(1000*1000*1000)
+        let hours = calendar.component(.hour, from: date)
+        let minutes = calendar.component(.minute, from: date)
+        let seconds = calendar.component(.second, from: date)
+        let nanoseconds = calendar.component(.nanosecond, from: date)
+        let nanosecondsPerSecond = 1000*1000*1000
 
-        var now = ((hours * 60) + minutes) * 60 + seconds + nanoseconds/nanosecondsPerSecond
+        let integerSeconds = ((hours * 60) + minutes) * 60 + seconds
+        var now: CGFloat = CGFloat(integerSeconds) + CGFloat(nanoseconds) / CGFloat(nanosecondsPerSecond)
         if (isPreview) {
             now = (now * 6).remainder(dividingBy: 60 * 60 * 24)
         }
-        return CGFloat(now)
+        return now
     }
-    
+
     /**
      * Return rotation angle that a hand would have given a period
-     * @note Clocks consider the origin to be vertical, which requires an offset of pi / 2
      * @param now {CGFloat} The time since midnight
      * @param period {CGFloat} The number of seconds in one rotation
      *
      * @returns {CGFloat} The radians from 0 on a clock that now/period would display
      */
     func getRotation(now: CGFloat, period: CGFloat) -> CGFloat {
-        return CGFloat.pi / 2 - 2 * CGFloat.pi * now.remainder(dividingBy: period) / period
+        return -2 * CGFloat.pi * now.remainder(dividingBy: period) / period
     }
 
     /**
@@ -128,7 +123,7 @@ class FractalCocoaClockView: ScreenSaverView {
 
         let rootSize = min(bounds.size.width, bounds.size.height) / 6
         var root = NSRect()
-        root.size = rotateSize(rotator: hourRotator, size: NSMakeSize(-rootSize, 0))
+        root.size = rotateSize(rotator: hourRotator, size: NSMakeSize(0, -rootSize))
         root.origin.x = NSMidX(bounds) - root.size.width
         root.origin.y = NSMidY(bounds) - root.size.height
 
@@ -142,7 +137,7 @@ class FractalCocoaClockView: ScreenSaverView {
      * @param relativeMinuteRotator {Rotator} The scaled rotation of the minute hand relative to the hour hand
      * @param depth {Int} The current fractal depth
      * @param depthLeft {Int} The number of fractal depths to continue drawing
-     * @param colour 
+     * @param colour {Array<CGFloat>} The colour of the branch to draw
      */
     func drawBranch(line: NSRect,
                     relativeSecondRotator: Rotator,
@@ -181,7 +176,9 @@ class FractalCocoaClockView: ScreenSaverView {
                        colour: newColour)
         }
 
-        NSColor.init(red: colour[0], green: colour[1], blue: colour[2], alpha: alphaForDepth[depth]).setStroke()
+        let alpha = (depth == 0) ? 1: (1 / CGFloat(depth))
+
+        NSColor.init(red: colour[0], green: colour[1], blue: colour[2], alpha: alpha).setStroke()
 
         let linePath = NSBezierPath()
         linePath.lineWidth = 2
@@ -196,13 +193,10 @@ class FractalCocoaClockView: ScreenSaverView {
                                   y: p2.y))
         linePath.stroke()
     }
-    
+
     override func draw(_ rect: NSRect) {
         super.draw(rect)
-        
 
-        NSColor.black.setFill()
-        rect.fill()
 
         let (hourHand, minuteRotator, secondRotator) = getHandRotations(isPreview: self.isPreview, bounds: self.bounds)
 
@@ -213,7 +207,7 @@ class FractalCocoaClockView: ScreenSaverView {
                    depthLeft: 10,
                    colour: [1, 1, 1])
     }
-    
+
     override func animateOneFrame() {
         needsDisplay = true;
     }
